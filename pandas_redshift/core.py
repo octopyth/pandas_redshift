@@ -18,6 +18,13 @@ S3_ACCEPTED_KWARGS = [
     'SSEKMSKeyId', 'RequestPayer', 'Tagging'
 ]  # Available parameters for service: https://boto3.readthedocs.io/en/latest/reference/services/s3.html#S3.Client.put_object
 
+PANDAS_ACCEPTED_KWARGS = [
+    'path_or_buf', 'sep', 'na_rep',  'float_format', 'columns', 'header',
+    'index', 'index_label', 'mode', 'encoding', 'compression', 'quoting',
+    'quotechar', 'line_terminator', 'chunksize', 'date_format', 'doublequote',
+    'escapechar', 'decimal', 'errors'
+]  # Available parameters: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.to_csv.html
+
 
 
 logging_config = {
@@ -128,11 +135,13 @@ def df_to_s3(data_frame, csv_name, index, save_local, delimiter, verbose=True, *
         save_local bool -- save a local copy
         delimiter str -- delimiter for csv file
     """
-    extra_kwargs = {k: v for k, v in kwargs.items(
+    extra_s3_kwargs = {k: v for k, v in kwargs.items(
     ) if k in S3_ACCEPTED_KWARGS and v is not None}
+    extra_pandas_kwargs = {k: v for k, v in kwargs.items(
+    ) if k in PANDAS_ACCEPTED_KWARGS and v is not None}
     # create local backup
     if save_local:
-        data_frame.to_csv(csv_name, index=index, sep=delimiter)
+        data_frame.to_csv(csv_name, index=index, sep=delimiter, **extra_pandas_kwargs)
         if verbose:
             logger.info('saved file {0} in {1}'.format(csv_name, os.getcwd()))
     #
@@ -140,7 +149,7 @@ def df_to_s3(data_frame, csv_name, index, save_local, delimiter, verbose=True, *
     data_frame.to_csv(csv_buffer, index=index, sep=delimiter)
     s3.Bucket(s3_bucket_var).put_object(
         Key=s3_subdirectory_var + csv_name, Body=csv_buffer.getvalue(),
-        **extra_kwargs)
+        **extra_s3_kwargs)
     if verbose:
         logger.info('saved file {0} in bucket {1}'.format(
             csv_name, s3_subdirectory_var + csv_name))
